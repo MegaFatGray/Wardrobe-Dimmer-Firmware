@@ -73,15 +73,37 @@ uint8_t adc_Read(void)
 int main(void)
 {
 	bool rampingFlag = true;							// Represents if ramping is in progress
-	int pwmSetPoint = 0;								// Ramping PWM output
-	int pwmMaxPoint = 200;								// Finishing PWM output
-	//int potReading = adc_Read;							// Read potentiometer setting for finishing PWM output
-	//int pwmMaxPoint = potReading / 4;						// Scale down to 0->256 for max PWM set point
+	uint8_t pwmSetPoint = 0;								// Ramping PWM output
+	//int pwmMaxPoint = 200;								// Finishing PWM output
+	uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
+	//////////////// ADC read is 8 bit, no down scaling needed
+	//uint8_t pwmMaxPoint = potReading / 4;					// Scale down to 0->256 for max PWM set point
 	
-	//uint32_t tickStart = millis();                    // Record ramping start time
+	
+	uint32_t tickStart = SysTick;						// Record ramping start time
     
     while (1) 
     {
+		if(rampingFlag)
+		{
+			uint32_t timeElapsed = (SysTick - tickStart);				// Find time elapsed
+			if(timeElapsed >= rampTime)									// If the ramp time has elapsed
+			{
+				rampingFlag = false;										// Clear flag to indicate ramping no longer in progress
+				pwmSetPoint = pwmMaxPoint;									// Set pwm to max set point
+			}
+			else														// Otherwise set pwm accordingly
+			{
+				pwmSetPoint = (timeElapsed*pwmMaxPoint) / rampTime;			// Scale to max set point
+			}
+		}
+		else															// If the ramp time has elapsed
+		{
+			pwmSetPoint = pwmMaxPoint;										// Then set pwm output at max set point
+		}
+		pwmSetPoint = pwmMaxPoint - pwmSetPoint;						// Invert because LM358 comparator is inverting
+		pwmSetPoint += (256 - pwmMaxPoint);								// Start ramping down from 256 not max set point
+		//analogWrite(pwmPin, pwmSetPoint);								// Set PWM output
     }
 }
 

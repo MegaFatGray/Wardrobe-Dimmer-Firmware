@@ -3,31 +3,31 @@ Wardrobe-Dimmer-Firmware.elf:     file format elf32-avr
 
 Sections:
 Idx Name          Size      VMA       LMA       File off  Algn
-  0 .text         000000a6  00000000  00000000  00000074  2**1
+  0 .text         000000f8  00000000  00000000  00000094  2**1
                   CONTENTS, ALLOC, LOAD, READONLY, CODE
-  1 .data         00000000  00800060  00800060  0000011a  2**0
+  1 .data         00000002  00800060  000000f8  0000018c  2**0
                   CONTENTS, ALLOC, LOAD, DATA
-  2 .bss          00000004  00800060  00800060  0000011a  2**0
+  2 .bss          00000004  00800062  00800062  0000018e  2**0
                   ALLOC
-  3 .comment      00000030  00000000  00000000  0000011a  2**0
+  3 .comment      00000030  00000000  00000000  0000018e  2**0
                   CONTENTS, READONLY
-  4 .note.gnu.avr.deviceinfo 0000003c  00000000  00000000  0000014c  2**2
+  4 .note.gnu.avr.deviceinfo 0000003c  00000000  00000000  000001c0  2**2
                   CONTENTS, READONLY
-  5 .debug_aranges 00000040  00000000  00000000  00000188  2**0
+  5 .debug_aranges 00000040  00000000  00000000  000001fc  2**0
                   CONTENTS, READONLY, DEBUGGING
-  6 .debug_info   00000591  00000000  00000000  000001c8  2**0
+  6 .debug_info   000005d4  00000000  00000000  0000023c  2**0
                   CONTENTS, READONLY, DEBUGGING
-  7 .debug_abbrev 000004e9  00000000  00000000  00000759  2**0
+  7 .debug_abbrev 0000051d  00000000  00000000  00000810  2**0
                   CONTENTS, READONLY, DEBUGGING
-  8 .debug_line   0000025f  00000000  00000000  00000c42  2**0
+  8 .debug_line   00000277  00000000  00000000  00000d2d  2**0
                   CONTENTS, READONLY, DEBUGGING
-  9 .debug_frame  00000084  00000000  00000000  00000ea4  2**2
+  9 .debug_frame  00000084  00000000  00000000  00000fa4  2**2
                   CONTENTS, READONLY, DEBUGGING
- 10 .debug_str    00000371  00000000  00000000  00000f28  2**0
+ 10 .debug_str    00000387  00000000  00000000  00001028  2**0
                   CONTENTS, READONLY, DEBUGGING
- 11 .debug_loc    00000089  00000000  00000000  00001299  2**0
+ 11 .debug_loc    000000d7  00000000  00000000  000013af  2**0
                   CONTENTS, READONLY, DEBUGGING
- 12 .debug_ranges 00000030  00000000  00000000  00001322  2**0
+ 12 .debug_ranges 00000030  00000000  00000000  00001486  2**0
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -61,18 +61,18 @@ Disassembly of section .text:
   2a:	10 e0       	ldi	r17, 0x00	; 0
   2c:	a0 e6       	ldi	r26, 0x60	; 96
   2e:	b0 e0       	ldi	r27, 0x00	; 0
-  30:	e6 ea       	ldi	r30, 0xA6	; 166
+  30:	e8 ef       	ldi	r30, 0xF8	; 248
   32:	f0 e0       	ldi	r31, 0x00	; 0
   34:	02 c0       	rjmp	.+4      	; 0x3a <__do_copy_data+0x10>
   36:	05 90       	lpm	r0, Z+
   38:	0d 92       	st	X+, r0
-  3a:	a0 36       	cpi	r26, 0x60	; 96
+  3a:	a2 36       	cpi	r26, 0x62	; 98
   3c:	b1 07       	cpc	r27, r17
   3e:	d9 f7       	brne	.-10     	; 0x36 <__do_copy_data+0xc>
 
 00000040 <__do_clear_bss>:
   40:	20 e0       	ldi	r18, 0x00	; 0
-  42:	a0 e6       	ldi	r26, 0x60	; 96
+  42:	a2 e6       	ldi	r26, 0x62	; 98
   44:	b0 e0       	ldi	r27, 0x00	; 0
   46:	01 c0       	rjmp	.+2      	; 0x4a <.do_clear_bss_start>
 
@@ -80,22 +80,22 @@ Disassembly of section .text:
   48:	1d 92       	st	X+, r1
 
 0000004a <.do_clear_bss_start>:
-  4a:	a4 36       	cpi	r26, 0x64	; 100
+  4a:	a6 36       	cpi	r26, 0x66	; 102
   4c:	b2 07       	cpc	r27, r18
   4e:	e1 f7       	brne	.-8      	; 0x48 <.do_clear_bss_loop>
-  50:	27 d0       	rcall	.+78     	; 0xa0 <main>
-  52:	27 c0       	rjmp	.+78     	; 0xa2 <_exit>
+  50:	36 d0       	rcall	.+108    	; 0xbe <main>
+  52:	50 c0       	rjmp	.+160    	; 0xf4 <_exit>
 
 00000054 <__bad_interrupt>:
   54:	d5 cf       	rjmp	.-86     	; 0x0 <__vectors>
 
 00000056 <__vector_3>:
-		ADCSRA |= (1<<ADSC);							// Start a single conversion
-		while(ADCSRA & (1<<ADSC)) {}					// Wait for ADSC bit to clear when conversion is complete
-		reading = ADCH;									// Read conversion result
-	}
-	return reading;
-}
+	// Initialise registers
+	//ADMUX &= ~( (1<<REFS0) | (1<<REFS1) );			// Select VCC as ADC reference voltage
+	ADMUX |= (1<<ADLAR);								// Select left adjusted data output (allows reading of single register (ADCH); 8-bit resolution is fine)
+	ADMUX |= (1<<MUX0);									// Select ADC1 channel
+	ADCSRA |= ( (1<<ADPS0) | (1<<ADPS1) );				// Select /8 prescalar, giving 125kHz ADC clock
+	ADCSRA |= (1<<ADEN);								// Enable ADC
   56:	1f 92       	push	r1
   58:	0f 92       	push	r0
   5a:	0f b6       	in	r0, 0x3f	; 63
@@ -105,17 +105,17 @@ Disassembly of section .text:
   62:	9f 93       	push	r25
   64:	af 93       	push	r26
   66:	bf 93       	push	r27
-  68:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__data_end>
-  6c:	90 91 61 00 	lds	r25, 0x0061	; 0x800061 <__data_end+0x1>
-  70:	a0 91 62 00 	lds	r26, 0x0062	; 0x800062 <__data_end+0x2>
-  74:	b0 91 63 00 	lds	r27, 0x0063	; 0x800063 <__data_end+0x3>
+  68:	80 91 62 00 	lds	r24, 0x0062	; 0x800062 <__data_end>
+  6c:	90 91 63 00 	lds	r25, 0x0063	; 0x800063 <__data_end+0x1>
+  70:	a0 91 64 00 	lds	r26, 0x0064	; 0x800064 <__data_end+0x2>
+  74:	b0 91 65 00 	lds	r27, 0x0065	; 0x800065 <__data_end+0x3>
   78:	01 96       	adiw	r24, 0x01	; 1
   7a:	a1 1d       	adc	r26, r1
   7c:	b1 1d       	adc	r27, r1
-  7e:	80 93 60 00 	sts	0x0060, r24	; 0x800060 <__data_end>
-  82:	90 93 61 00 	sts	0x0061, r25	; 0x800061 <__data_end+0x1>
-  86:	a0 93 62 00 	sts	0x0062, r26	; 0x800062 <__data_end+0x2>
-  8a:	b0 93 63 00 	sts	0x0063, r27	; 0x800063 <__data_end+0x3>
+  7e:	80 93 62 00 	sts	0x0062, r24	; 0x800062 <__data_end>
+  82:	90 93 63 00 	sts	0x0063, r25	; 0x800063 <__data_end+0x1>
+  86:	a0 93 64 00 	sts	0x0064, r26	; 0x800064 <__data_end+0x2>
+  8a:	b0 93 65 00 	sts	0x0065, r27	; 0x800065 <__data_end+0x3>
   8e:	bf 91       	pop	r27
   90:	af 91       	pop	r26
   92:	9f 91       	pop	r25
@@ -126,14 +126,80 @@ Disassembly of section .text:
   9c:	1f 90       	pop	r1
   9e:	18 95       	reti
 
-000000a0 <main>:
+000000a0 <adc_Read>:
 
+uint8_t adc_Read(void)
+{
+	///////////////// implement: averaging
+	static bool firstPass = true;						// Flag for first pass through function
+	ADCSRA |= (1<<ADSC);								// Start a single conversion
+  a0:	36 9a       	sbi	0x06, 6	; 6
+	while(ADCSRA & (1<<ADSC)) {}						// Wait for ADSC bit to clear when conversion is complete
+  a2:	36 99       	sbic	0x06, 6	; 6
+  a4:	fe cf       	rjmp	.-4      	; 0xa2 <adc_Read+0x2>
+	uint8_t reading = ADCH;								// Read conversion result
+  a6:	85 b1       	in	r24, 0x05	; 5
+	
+	if(firstPass)										// If this is the first pass through, discard the result and take another
+  a8:	90 91 60 00 	lds	r25, 0x0060	; 0x800060 <__data_start>
+  ac:	99 23       	and	r25, r25
+  ae:	31 f0       	breq	.+12     	; 0xbc <adc_Read+0x1c>
+	{
+		firstPass = false;								// Clear flag
+  b0:	10 92 60 00 	sts	0x0060, r1	; 0x800060 <__data_start>
+		ADCSRA |= (1<<ADSC);							// Start a single conversion
+  b4:	36 9a       	sbi	0x06, 6	; 6
+		while(ADCSRA & (1<<ADSC)) {}					// Wait for ADSC bit to clear when conversion is complete
+  b6:	36 99       	sbic	0x06, 6	; 6
+  b8:	fe cf       	rjmp	.-4      	; 0xb6 <adc_Read+0x16>
+		reading = ADCH;									// Read conversion result
+  ba:	85 b1       	in	r24, 0x05	; 5
+	}
+	return reading;
+}
+  bc:	08 95       	ret
+
+000000be <main>:
 int main(void)
 {
-  a0:	ff cf       	rjmp	.-2      	; 0xa0 <main>
+	bool rampingFlag = true;							// Represents if ramping is in progress
+	uint8_t pwmSetPoint = 0;								// Ramping PWM output
+	//int pwmMaxPoint = 200;								// Finishing PWM output
+	uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
+  be:	f0 df       	rcall	.-32     	; 0xa0 <adc_Read>
+	//////////////// ADC read is 8 bit, no down scaling needed
+	//uint8_t pwmMaxPoint = potReading / 4;					// Scale down to 0->256 for max PWM set point
+	
+	
+	uint32_t tickStart = SysTick;						// Record ramping start time
+  c0:	40 91 62 00 	lds	r20, 0x0062	; 0x800062 <__data_end>
+  c4:	50 91 63 00 	lds	r21, 0x0063	; 0x800063 <__data_end+0x1>
+  c8:	60 91 64 00 	lds	r22, 0x0064	; 0x800064 <__data_end+0x2>
+  cc:	70 91 65 00 	lds	r23, 0x0065	; 0x800065 <__data_end+0x3>
+    
+    while (1) 
+    {
+		if(rampingFlag)
+		{
+			uint32_t timeElapsed = (SysTick - tickStart);				// Find time elapsed
+  d0:	80 91 62 00 	lds	r24, 0x0062	; 0x800062 <__data_end>
+  d4:	90 91 63 00 	lds	r25, 0x0063	; 0x800063 <__data_end+0x1>
+  d8:	a0 91 64 00 	lds	r26, 0x0064	; 0x800064 <__data_end+0x2>
+  dc:	b0 91 65 00 	lds	r27, 0x0065	; 0x800065 <__data_end+0x3>
+			if(timeElapsed >= rampTime)									// If the ramp time has elapsed
+  e0:	84 1b       	sub	r24, r20
+  e2:	95 0b       	sbc	r25, r21
+  e4:	a6 0b       	sbc	r26, r22
+  e6:	b7 0b       	sbc	r27, r23
+  e8:	88 38       	cpi	r24, 0x88	; 136
+  ea:	93 41       	sbci	r25, 0x13	; 19
+  ec:	a1 05       	cpc	r26, r1
+  ee:	b1 05       	cpc	r27, r1
+  f0:	78 f3       	brcs	.-34     	; 0xd0 <main+0x12>
+  f2:	ff cf       	rjmp	.-2      	; 0xf2 <main+0x34>
 
-000000a2 <_exit>:
-  a2:	f8 94       	cli
+000000f4 <_exit>:
+  f4:	f8 94       	cli
 
-000000a4 <__stop_program>:
-  a4:	ff cf       	rjmp	.-2      	; 0xa4 <__stop_program>
+000000f6 <__stop_program>:
+  f6:	ff cf       	rjmp	.-2      	; 0xf6 <__stop_program>
