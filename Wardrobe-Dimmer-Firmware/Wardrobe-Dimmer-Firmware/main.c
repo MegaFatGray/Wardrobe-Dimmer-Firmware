@@ -5,23 +5,42 @@
  * Author : graym
  */ 
 
-////////////////////// The following fuse bits should be programmed to set the system clock at 1MHz:
-////////////////////// CKSEL = “0010”, SUT = “10”, and CKDIV8
+////////// The following fuse bits should be programmed to set the system clock at 1MHz:
+////////// CKSEL = “0010”, SUT = “10”, and CKDIV8
 
+////////// INCLUDES //////////
 #include <avr/io.h>
 #include <stdbool.h>
 #include <avr/interrupt.h>
 
-// SysTick #defines
-#define F_CPU		1000000ul			// CPU running at 1Mhz
-#define CTC_Top		125					// Sets SysTick period
+////////// DEFINES //////////
 // Program #defines
 #define potPin		1					// Potentiometer pin
 #define pwmPin		4					// PWM output pin
 #define rampTime	5000				// Time in ms to ramp up to PWM set point
+// SysTick #defines
+#define F_CPU		1000000ul			// CPU running at 1Mhz
+#define CTC_Top		125					// Sets SysTick period
 
+////////// VARIABLES //////////
 // SysTick variables
 volatile uint32_t SysTick;
+
+////////// FUNCTIONS //////////
+// PWM functions
+void pwm_Initialise(void)
+{
+	DDRB   |=   (1 << PB1);								// Set pwm pin as output
+	PORTB  |=   (1 << PB1);								// Set pwm pin high (LM358 comparator is inverted so this turns off mosfet)
+	TCCR0A |=   (1 << COM0B1);							// Clear OC0B (PB1) on Compare Match, set OC0B at BOTTOM (non-inverting mode)
+	TCCR0A |= ( (1<<WGM00) | (1<<WGM01)  );				// Set PWM fast mode
+	TCCR0B |=   (1<<CS01);								// Set prescalar to /8 (125kHz timer clock, ~500Hz PWM frequency)
+}
+
+void pwm_Set(uint8_t setPoint)
+{
+	OCR0B = setPoint;									// Set pwm output compare register to desired value
+}
 
 // SysTick functions
 void SysTick_Config(unsigned short duration) {
