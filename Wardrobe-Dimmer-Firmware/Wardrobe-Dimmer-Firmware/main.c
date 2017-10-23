@@ -5,16 +5,39 @@
  * Author : graym
  */ 
 
+////////////////////// The following fuse bits should be programmed to set the system clock at 1MHz:
+////////////////////// CKSEL = “0010”, SUT = “10”, and CKDIV8
+
 #include <avr/io.h>
 #include <stdbool.h>
+#include <avr/interrupt.h>
 
-#define potPin 1        // Potentiometer pin
-#define pwmPin 4        // PWM output pin
-#define rampTime 5000   // Time in ms to ramp up to PWM set point
+// SysTick #defines
+#define F_CPU		1000000ul			// CPU running at 1Mhz
+#define CTC_Top		125					// Sets SysTick period
+// Program #defines
+#define potPin		1					// Potentiometer pin
+#define pwmPin		4					// PWM output pin
+#define rampTime	5000				// Time in ms to ramp up to PWM set point
 
-//////////////////////////////////////////////////////// The following fuse bits should be programmed to set the system clock at 1MHz:
-//////////////////////////////////////////////////////// CKSEL = “0010”, SUT = “10”, and CKDIV8
+// SysTick variables
+volatile uint32_t SysTick;
 
+// SysTick functions
+void SysTick_Config(unsigned short duration) {
+	TCCR1 &= ~( (1<<CS10) | (1<<CS11) | (1<<CS12) );	// Set /8 clock prescalar (1MHz/8 = 125kHz)
+	TCCR1 |= (1<<CTC1);									// Set clear timer on compare match (CTC)
+	OCR1A =	CTC_Top;									// Set the top of CTC on channel a
+	TCNT1 =	0;											// Reset timer counter
+	TIMSK |=(1<<OCIE1A);								// Output compare interrupt for channel a enabled
+	sei();												// Enable interrupts
+}
+
+ISR(TIMER1_COMPA_vect) {			//tmr1 CTC / systick tmr
+	SysTick++;
+}
+
+// ADC code
 void adc_Initialise(void)
 {
 	// Clear registers before initialising
