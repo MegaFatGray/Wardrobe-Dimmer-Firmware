@@ -7,33 +7,39 @@
 
 ////////// The fuse bits in the target device should be programmed to use the internal RC 8MHz oscillator with the /8 option (CKDIV8)
 
+#define F_CPU		1000000ul
+
 ////////// INCLUDES //////////
 #include <avr/io.h>
 #include <stdbool.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
 ////////// DEFINES //////////
 // Program #defines
-#define potPin		1					// Potentiometer pin
-#define pwmPin		4					// PWM output pin
 #define rampTime	5000				// Time in ms to ramp up to PWM set point
 // SysTick #defines
-#define F_CPU		1000000ul			// CPU running at 1Mhz
 #define CTC_Top		125					// Sets SysTick period
 
 ////////// VARIABLES //////////
 // SysTick variables
-volatile uint32_t SysTick;
+volatile uint32_t SysTick = 0;
 
 ////////// FUNCTIONS //////////
 // PWM functions
 void pwm_Initialise(void)
 {
-	DDRB   |=   (1 << PB1);								// Set pwm pin as output
-	PORTB  |=   (1 << PB1);								// Set pwm pin high (LM358 comparator is inverted so this turns off mosfet)
-	TCCR0A |=   (1 << COM0B1);							// Clear OC0B (PB1) on Compare Match, set OC0B at BOTTOM (non-inverting mode)
-	TCCR0A |= ( (1<<WGM00) | (1<<WGM01)  );				// Set PWM fast mode
+	DDRB   &=   ~(1 << PB1);							// Set pwm pin as input (keep output turned off until PWM has started to avoid initial low pulse which causes LEDs to flash)
+	PORTB  |=   (1 << PB1);								// Set internal pullup
 	TCCR0B |=   (1<<CS01);								// Set prescalar to /8 (125kHz timer clock, ~500Hz PWM frequency)
+	OCR0B   = 0;										// Initialise to zero duty cycle
+	TCCR0A |= ( (1<<WGM00) | (1<<WGM01)  );				// Set PWM fast mode
+	TCNT0   = 0;										// Reset counter
+	TCCR0A |=   (1 << COM0B0) | (1 << COM0B1);			// Set OC0A/OC0B on Compare Match, clear OC0A/OC0B at BOTTOM (inverting mode)
+	
+	_delay_ms(5);										// Delay before turning on pwm output to avoid initial low pulse
+	
+	DDRB   |=   (1 << PB1);								// Turn on pwm output
 }
 
 /* OCR0B register is 8-bits, set PWM from 0-255 */
@@ -93,27 +99,18 @@ uint8_t adc_Read(void)
 
 int main(void)
 {
+	pwm_Initialise();
+	
+	
+	adc_Initialise();
 	SysTick_Config();
-	DDRB   |=   (1 << PB3);								// Set pin as output
-	PORTB  &=   ~(1 << PB3);							// Set pin low
 	
-	//adc_Initialise();
-	//pwm_Initialise();
-	
-	
-	while(1);
-	
-	
-	/*
-	bool rampingFlag = true;							// Represents if ramping is in progress
+	bool rampingFlag = true;								// Represents if ramping is in progress
 	uint8_t pwmSetPoint = 0;								// Ramping PWM output
-	//int pwmMaxPoint = 200;								// Finishing PWM output
-	uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
-	//////////////// ADC read is 8 bit, no down scaling needed
-	//uint8_t pwmMaxPoint = potReading / 4;					// Scale down to 0->256 for max PWM set point
-	
-	
-	uint32_t tickStart = SysTick;						// Record ramping start time
+	int pwmMaxPoint = 200;								// Finishing PWM output
+	//uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
+															// ADC read is 8 bit, no down scaling needed
+	uint32_t tickStart = SysTick;							// Record ramping start time
     
     while (1) 
     {
@@ -127,17 +124,19 @@ int main(void)
 			}
 			else														// Otherwise set pwm accordingly
 			{
-				pwmSetPoint = (timeElapsed*pwmMaxPoint) / rampTime;			// Scale to max set point
+				pwmSetPoint = ( (timeElapsed*pwmMaxPoint) / rampTime );	// Scale to max set point
 			}
 		}
 		else															// If the ramp time has elapsed
 		{
+						PORTB  |=   (1 << PB3);							// Set pin high
 			pwmSetPoint = pwmMaxPoint;										// Then set pwm output at max set point
 		}
-		pwmSetPoint = pwmMaxPoint - pwmSetPoint;						// Invert because LM358 comparator is inverting
-		pwmSetPoint += (256 - pwmMaxPoint);								// Start ramping down from 256 not max set point
-		//analogWrite(pwmPin, pwmSetPoint);								// Set PWM output
+		
+		//pwmSetPoint = (pwmMaxPoint - pwmSetPoint);						// Invert because LM358 comparator is inverting
+		//pwmSetPoint += (256 - pwmMaxPoint);								// Start ramping down from 256 not max set point
+		pwm_Set(pwmSetPoint);											// Set PWM output
     }
-	*/
+	
 }
 
