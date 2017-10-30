@@ -100,15 +100,12 @@ uint8_t adc_Read(void)
 int main(void)
 {
 	pwm_Initialise();
-	
-	
 	adc_Initialise();
 	SysTick_Config();
 	
 	bool rampingFlag = true;								// Represents if ramping is in progress
 	uint8_t pwmSetPoint = 0;								// Ramping PWM output
-	int pwmMaxPoint = 200;								// Finishing PWM output
-	//uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
+	uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
 															// ADC read is 8 bit, no down scaling needed
 	uint32_t tickStart = SysTick;							// Record ramping start time
     
