@@ -5,8 +5,7 @@
  * Author : graym
  */ 
 
-////////// The following fuse bits should be programmed to set the system clock at 1MHz:
-////////// CKSEL = “0010”, SUT = “10”, and CKDIV8
+////////// The fuse bits in the target device should be programmed to use the internal RC 8MHz oscillator with the /8 option (CKDIV8)
 
 ////////// INCLUDES //////////
 #include <avr/io.h>
@@ -37,22 +36,25 @@ void pwm_Initialise(void)
 	TCCR0B |=   (1<<CS01);								// Set prescalar to /8 (125kHz timer clock, ~500Hz PWM frequency)
 }
 
+/* OCR0B register is 8-bits, set PWM from 0-255 */
 void pwm_Set(uint8_t setPoint)
 {
 	OCR0B = setPoint;									// Set pwm output compare register to desired value
 }
 
 // SysTick functions
-void SysTick_Config(unsigned short duration) {
-	TCCR1 &= ~( (1<<CS10) | (1<<CS11) | (1<<CS12) );	// Set /8 clock prescalar (1MHz/8 = 125kHz)
+void SysTick_Config(void)
+{	
+	TCCR1 |= (1<<CS12);									// Set /8 clock prescalar (1MHz/8 = 125kHz)
 	TCCR1 |= (1<<CTC1);									// Set clear timer on compare match (CTC)
-	OCR1A =	CTC_Top;									// Set the top of CTC on channel a
+	OCR1C =	CTC_Top;									// Set the top of CTC on channel c
 	TCNT1 =	0;											// Reset timer counter
-	TIMSK |=(1<<OCIE1A);								// Output compare interrupt for channel a enabled
+	TIMSK |= (1<<OCIE1A);								// Output compare interrupt for channel a enabled
 	sei();												// Enable interrupts
 }
 
-ISR(TIMER1_COMPA_vect) {			//tmr1 CTC / systick tmr
+ISR(TIMER1_COMPA_vect)
+{
 	SysTick++;
 }
 
@@ -91,6 +93,18 @@ uint8_t adc_Read(void)
 
 int main(void)
 {
+	SysTick_Config();
+	DDRB   |=   (1 << PB3);								// Set pin as output
+	PORTB  &=   ~(1 << PB3);							// Set pin low
+	
+	//adc_Initialise();
+	//pwm_Initialise();
+	
+	
+	while(1);
+	
+	
+	/*
 	bool rampingFlag = true;							// Represents if ramping is in progress
 	uint8_t pwmSetPoint = 0;								// Ramping PWM output
 	//int pwmMaxPoint = 200;								// Finishing PWM output
@@ -124,5 +138,6 @@ int main(void)
 		pwmSetPoint += (256 - pwmMaxPoint);								// Start ramping down from 256 not max set point
 		//analogWrite(pwmPin, pwmSetPoint);								// Set PWM output
     }
+	*/
 }
 
