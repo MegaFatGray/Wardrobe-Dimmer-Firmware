@@ -1,0 +1,16 @@
+Digispark:
+ - PWM output on P1
+ - ADC input on P2
+ - Remove LED from P1
+ 
+Dimmer:
+ - Cut trace from pot centre pin to LM358 +ve terminal
+ - Cut trace from LM358 -ve terminal to anything else (before resistor & cap)
+ - Add resistive divider from 5V to GND to supply 2.5V to LM358 +ve pin
+ - Remove R15
+ 
+Interconnects:
+ - Tap 12V from dimmer into Vin on Digispark
+ - Tap GND from dimmer into GND on Digispark
+ - Tap pot centre pin to ADC input on Digispark (P2)
+ - Tap LM358 -ve pin from dimmer to PWM output from Digispark (P1)
