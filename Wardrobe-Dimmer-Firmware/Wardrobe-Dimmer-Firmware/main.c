@@ -17,54 +17,28 @@
 
 ////////// DEFINES //////////
 // Program #defines
-#define rampTime	5000				// Time in ms to ramp up to PWM set point
+#define rampTime	5000						// Time in ms to ramp up to PWM set point
+#define pwmMin		80							// ADC counts representing minimum pot setting
+#define pwmMax		175							// ADC counts representing maximum pot setting
+#define pwmRange	(pwmMax - pwmMin)			// Range of usable adc counts
+#define adcRes		256							// Number of adc counts
+#define pwmSF		(adcRes*100 / pwmRange)		// Scale factor for pwm
 // SysTick #defines
-#define CTC_Top		125					// Sets SysTick period
+#define CTC_Top		125							// Sets SysTick period
 
 ////////// VARIABLES //////////
+// Program variables
+typedef enum state
+{
+	STATE_RAMP,				// Ramping up from off to set brightness
+	STATE_FOLLOW			// Ramping complete, just tracking dimmer pot
+} State_t;
+
 // SysTick variables
 volatile uint32_t SysTick = 0;
 
 ////////// FUNCTIONS //////////
-// PWM functions
-void pwm_Initialise(void)
-{
-	DDRB   &=   ~(1 << PB1);							// Set pwm pin as input (keep output turned off until PWM has started to avoid initial low pulse which causes LEDs to flash)
-	PORTB  |=   (1 << PB1);								// Set internal pullup
-	TCCR0B |=   (1<<CS01);								// Set prescalar to /8 (125kHz timer clock, ~500Hz PWM frequency)
-	OCR0B   = 0;										// Initialise to zero duty cycle
-	TCCR0A |= ( (1<<WGM00) | (1<<WGM01)  );				// Set PWM fast mode
-	TCNT0   = 0;										// Reset counter
-	TCCR0A |=   (1 << COM0B0) | (1 << COM0B1);			// Set OC0A/OC0B on Compare Match, clear OC0A/OC0B at BOTTOM (inverting mode)
-	
-	_delay_ms(5);										// Delay before turning on pwm output to avoid initial low pulse
-	
-	DDRB   |=   (1 << PB1);								// Turn on pwm output
-}
-
-/* OCR0B register is 8-bits, set PWM from 0-255 */
-void pwm_Set(uint8_t setPoint)
-{
-	OCR0B = setPoint;									// Set pwm output compare register to desired value
-}
-
-// SysTick functions
-void SysTick_Config(void)
-{	
-	TCCR1 |= (1<<CS12);									// Set /8 clock prescalar (1MHz/8 = 125kHz)
-	TCCR1 |= (1<<CTC1);									// Set clear timer on compare match (CTC)
-	OCR1C =	CTC_Top;									// Set the top of CTC on channel c
-	TCNT1 =	0;											// Reset timer counter
-	TIMSK |= (1<<OCIE1A);								// Output compare interrupt for channel a enabled
-	sei();												// Enable interrupts
-}
-
-ISR(TIMER1_COMPA_vect)
-{
-	SysTick++;
-}
-
-// ADC code
+// ADC functions
 void adc_Initialise(void)
 {
 	// Clear registers before initialising
@@ -97,43 +71,101 @@ uint8_t adc_Read(void)
 	return reading;
 }
 
+// PWM functions
+void pwm_Initialise(void)
+{
+	DDRB   &=   ~(1 << PB1);							// Set pwm pin as input (keep output turned off until PWM has started to avoid initial low pulse which causes LEDs to flash)
+	PORTB  |=   (1 << PB1);								// Set internal pullup
+	TCCR0B |=   (1<<CS01);								// Set prescalar to /8 (125kHz timer clock, ~500Hz PWM frequency)
+	OCR0B   = 0;										// Initialise to zero duty cycle
+	TCCR0A |= ( (1<<WGM00) | (1<<WGM01)  );				// Set PWM fast mode
+	TCNT0   = 0;										// Reset counter
+	TCCR0A |=   (1 << COM0B0) | (1 << COM0B1);			// Set OC0A/OC0B on Compare Match, clear OC0A/OC0B at BOTTOM (inverting mode)
+	
+	_delay_ms(5);										// Delay before turning on pwm output to avoid initial low pulse
+	
+	DDRB   |=   (1 << PB1);								// Turn on pwm output
+}
+
+/* OCR0B register is 8-bits, set PWM from 0-255 */
+void pwm_Set(uint8_t setPoint)
+{
+	OCR0B = setPoint;									// Set pwm output compare register to desired value
+}
+
+uint8_t pwm_GetSetPoint(void)
+{
+	uint8_t reading = adc_Read();											// Read the pot
+	if(reading > pwmMax)													// If it's higher than the expected max, set to max
+	{
+		reading = pwmMax;
+	}
+	else if(reading < pwmMin)												// If it's lower than the expected min, set to min
+	{
+		reading = pwmMin;
+	}
+	uint32_t readingScaled = ( ( (reading - pwmMin) * pwmSF ) / 100 );		// Scale the reading
+	return (uint8_t)readingScaled;
+}
+
+// SysTick functions
+void SysTick_Config(void)
+{	
+	TCCR1 |= (1<<CS12);									// Set /8 clock prescalar (1MHz/8 = 125kHz)
+	TCCR1 |= (1<<CTC1);									// Set clear timer on compare match (CTC)
+	OCR1C =	CTC_Top;									// Set the top of CTC on channel c
+	TCNT1 =	0;											// Reset timer counter
+	TIMSK |= (1<<OCIE1A);								// Output compare interrupt for channel a enabled
+	sei();												// Enable interrupts
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+	SysTick++;
+}
+
 int main(void)
 {
 	pwm_Initialise();
 	adc_Initialise();
 	SysTick_Config();
 	
-	bool rampingFlag = true;								// Represents if ramping is in progress
 	uint8_t pwmSetPoint = 0;								// Ramping PWM output
-	uint8_t pwmMaxPoint = adc_Read();						// Read potentiometer setting for finishing PWM output
+	uint8_t pwmMaxPoint = pwm_GetSetPoint();				// Read potentiometer setting for finishing PWM output
 															// ADC read is 8 bit, no down scaling needed
 	uint32_t tickStart = SysTick;							// Record ramping start time
     
-    while (1) 
-    {
-		if(rampingFlag)
-		{
-			uint32_t timeElapsed = (SysTick - tickStart);				// Find time elapsed
-			if(timeElapsed >= rampTime)									// If the ramp time has elapsed
-			{
-				rampingFlag = false;										// Clear flag to indicate ramping no longer in progress
-				pwmSetPoint = pwmMaxPoint;									// Set pwm to max set point
-			}
-			else														// Otherwise set pwm accordingly
-			{
-				pwmSetPoint = ( (timeElapsed*pwmMaxPoint) / rampTime );	// Scale to max set point
-			}
-		}
-		else															// If the ramp time has elapsed
-		{
-						PORTB  |=   (1 << PB3);							// Set pin high
-			pwmSetPoint = pwmMaxPoint;										// Then set pwm output at max set point
-		}
-		
-		//pwmSetPoint = (pwmMaxPoint - pwmSetPoint);						// Invert because LM358 comparator is inverting
-		//pwmSetPoint += (256 - pwmMaxPoint);								// Start ramping down from 256 not max set point
-		pwm_Set(pwmSetPoint);											// Set PWM output
-    }
+	State_t state = STATE_RAMP;
 	
+	while(1)
+	{
+		switch(state)
+		{
+			case STATE_RAMP:
+			{
+				uint32_t timeElapsed = (SysTick - tickStart);				// Find time elapsed
+				if(timeElapsed >= rampTime)									// If the ramp time has elapsed
+				{
+					state = STATE_FOLLOW;										// Change state to following
+					pwmSetPoint = pwmMaxPoint;									// Set pwm to max set point
+				}
+				else														// Otherwise set pwm accordingly
+				{
+					pwmSetPoint = ( (timeElapsed*pwmMaxPoint) / rampTime );	// Scale to max set point
+				}
+				break;
+			}
+			case STATE_FOLLOW:
+			{
+				pwmSetPoint = pwm_GetSetPoint();							// Read pot for pwm setting
+				break;
+			}
+			default:
+			{
+				while(1);
+			}
+		}
+		pwm_Set(pwmSetPoint);												// Set PWM output
+	}
 }
 
